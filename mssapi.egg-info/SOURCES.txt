@@ -56,7 +56,9 @@ mssapi/s3/website.py
 mssapi/vendored/__init__.py
 mssapi/vendored/six.py
 test/test_bucket.py
+test/test_common.py
 test/test_connection.py
 test/test_key.py
 test/test_multipart.py
+test/test_readme.py
 test/test_util.py

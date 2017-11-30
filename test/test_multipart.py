@@ -4,11 +4,13 @@ import os
 import test_util
 import hashlib
 
+from test_common import create_bucket
+
 conn = test_util.get_conn()
 
 fpath = 'multipart'
 fps = []
-b = conn.create_bucket('test_multipart_bucket')
+b = create_bucket(conn, 'test_multipart_bucket')
 mp = b.initiate_multipart_upload('multipart_key')
 
 md5 = hashlib.md5()

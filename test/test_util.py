@@ -6,11 +6,11 @@ import mssapi
 from mssapi.s3.connection import S3Connection
 from mssapi.s3.connection import OrdinaryCallingFormat
 
-host = '192.168.4.242'
-port = 6008
+host = 'MSS访问域名'
+port = 80
 
-access_key = '71454bfd78c349288e9758b7972256dc'
-access_secret = '3f2c918ed5fc42e2a6a8f69379834f23'
+access_key = '*********************'
+access_secret = '*********************'
 
 def get_conn():
 

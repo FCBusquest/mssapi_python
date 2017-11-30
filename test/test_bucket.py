@@ -3,8 +3,10 @@
 import test_util
 import time
 
+from test_common import create_bucket
+
 conn = test_util.get_conn()
-b = conn.create_bucket('test_bucket_0')
+b = create_bucket(conn, 'test_bucket_0')
 
 #test new_key
 k0 = b.new_key('key_0')

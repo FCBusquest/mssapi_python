@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import test_util
+from test_common import create_bucket
 
 conn = test_util.get_conn()
 
 #test create_bucket
-conn.create_bucket('test_bucket_0')
-conn.create_bucket('test_bucket_1')
-conn.create_bucket('test_bucket_2')
+create_bucket(conn, 'test_bucket_0')
+create_bucket(conn, 'test_bucket_1')
+create_bucket(conn, 'test_bucket_2')
 
 #test get_all_buckets
 bs = conn.get_all_buckets()

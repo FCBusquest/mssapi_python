@@ -7,6 +7,7 @@ import httplib
 
 import mssapi
 from mssapi.s3.key import Key
+from test_common import create_bucket
 
 def create_file(fn, cont):
     with open(fn, 'w+') as fp:
@@ -17,9 +18,9 @@ def read_file(fn):
         return fp.read()
 
 conn = test_util.get_conn()
-b = conn.create_bucket('test_bucket_0')
 
 #test set_contents_from_string
+b = create_bucket(conn, 'test_bucket_1')
 k = Key(b, 'key_0')
 
 k.set_contents_from_string('key0 cont0')
@@ -70,6 +71,15 @@ test_util.assert_eq( md5, k.md5,  'test k.md5')
 os.remove("file_w1")
 k.delete()
 
+#test set_contents_from_stream
+k = Key(b, 'key_1')
+create_file('file_w3', '3'*1024*1024)
+with open('file_w3', 'rb') as fp:
+    k.set_contents_from_stream(fp)
+cont = k.get_contents_as_string()
+test_util.assert_eq(cont, '3'*1024*1024, 'test set_contents_from_stream')
+os.remove("file_w3")
+
 #test set_contents_from_filename
 k = Key(b, 'key_1')
 create_file('file_w2', '2'*1024)
@@ -80,7 +90,7 @@ test_util.assert_eq( cont, '2'*1024,  'test set_contents_from_filename')
 os.remove("file_w2")
 
 #test copy
-b2 = conn.create_bucket('test_bucket_2')
+b2 = create_bucket(conn, 'test_bucket_2')
 k2 = k.copy('test_bucket_2', 'key_2')
 cont =  k2.get_contents_as_string()
 test_util.assert_eq( cont, '2'*1024,  'test copy')

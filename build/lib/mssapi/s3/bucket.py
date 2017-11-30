@@ -394,6 +394,103 @@ class Bucket(object):
                                             force_http=force_http,
                                             expires_in_absolute=expires_in_absolute)
 
+    def delete_keys(self, keys, quiet=False, headers=None):
+        """
+        Deletes a set of keys using MSS's Multi-object delete API. If a
+        VersionID is specified for that key then that version is removed.
+        Returns a MultiDeleteResult Object, which contains Deleted
+        and Error elements for each key you ask to delete.
+
+        :type keys: list
+        :param keys: A list of either key_names or (key_name, versionid) pairs
+            or a list of Key instances.
+
+        :type quiet: boolean
+        :param quiet: In quiet mode the response includes only keys
+            where the delete operation encountered an error. For a
+            successful deletion, the operation does not return any
+            information about the delete in the response body.
+
+        :type mfa_token: tuple or list of strings
+        :param mfa_token: A tuple or list consisting of the serial
+            number from the MFA device and the current value of the
+            six-digit token associated with the device.  This value is
+            required anytime you are deleting versioned objects from a
+            bucket that has the MFADelete option on the bucket.
+
+        :returns: An instance of MultiDeleteResult
+        """
+        mfa_token = None
+        ikeys = iter(keys)
+        result = MultiDeleteResult(self)
+        provider = self.connection.provider
+        query_args = 'delete'
+
+        def delete_keys2(hdrs):
+            hdrs = hdrs or {}
+            data = u"""<?xml version="1.0" encoding="UTF-8"?>"""
+            data += u"<Delete>"
+            if quiet:
+                data += u"<Quiet>true</Quiet>"
+            count = 0
+            while count < 1000:
+                try:
+                    key = next(ikeys)
+                except StopIteration:
+                    break
+                if isinstance(key, six.string_types):
+                    key_name = key
+                    version_id = None
+                elif isinstance(key, tuple) and len(key) == 2:
+                    key_name, version_id = key
+                elif (isinstance(key, Key) or isinstance(key, DeleteMarker)) and key.name:
+                    key_name = key.name
+                    version_id = key.version_id
+                else:
+                    if isinstance(key, Prefix):
+                        key_name = key.name
+                        code = 'PrefixSkipped'   # Don't delete Prefix
+                    else:
+                        key_name = repr(key)   # try get a string
+                        code = 'InvalidArgument'  # other unknown type
+                    message = 'Invalid. No delete action taken for this object.'
+                    error = Error(key_name, code=code, message=message)
+                    result.errors.append(error)
+                    continue
+                count += 1
+                data += u"<Object><Key>%s</Key>" % xml.sax.saxutils.escape(key_name)
+                if version_id:
+                    data += u"<VersionId>%s</VersionId>" % version_id
+                data += u"</Object>"
+            data += u"</Delete>"
+            if count <= 0:
+                return False  # no more
+            data = data.encode('utf-8')
+            fp = BytesIO(data)
+            md5 = mssapi.utils.compute_md5(fp)
+            hdrs['Content-MD5'] = md5[1]
+            hdrs['Content-Type'] = 'text/xml'
+            if mfa_token:
+                hdrs[provider.mfa_header] = ' '.join(mfa_token)
+            response = self.connection.make_request('POST', self.name,
+                                                    headers=hdrs,
+                                                    query_args=query_args,
+                                                    data=data)
+            body = response.read()
+            if response.status == 200:
+                h = handler.XmlHandler(result, self)
+                if not isinstance(body, bytes):
+                    body = body.encode('utf-8')
+                xml.sax.parseString(body, h)
+                return count >= 1000  # more?
+            else:
+                raise provider.storage_response_error(response.status,
+                                                      response.reason,
+                                                      body)
+        while delete_keys2(headers):
+            pass
+        return result
+
     def delete_key(self, key_name, headers=None):
         """
         Deletes a key from the bucket.  If a version_id is provided,
@@ -763,7 +860,7 @@ class Bucket(object):
 #==================================================================================
 
 
-    '''
+
     def cancel_multipart_upload(self, key_name, upload_id, headers=None):
         """
         To verify that all parts have been removed, so you don't get charged
@@ -780,6 +877,7 @@ class Bucket(object):
             raise self.connection.provider.storage_response_error(
                 response.status, response.reason, body)
 
+    '''
     def get_all_multipart_uploads(self, headers=None, **params):
         """
         A lower-level, version-aware method for listing active

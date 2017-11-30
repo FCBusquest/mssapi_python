@@ -557,7 +557,7 @@ class Key(object):
                                                    force_http,
                                                    expires_in_absolute,)
 
-    def send_file(self, fp, headers=None, query_args=None, size=None):
+    def send_file(self, fp, headers=None, query_args=None, chunked_transfer=False, size=None):
         """
         Upload a file to a key into a bucket on S3.
 
@@ -598,7 +598,6 @@ class Key(object):
 
         cb=None
         num_cb=10
-        chunked_transfer=False
 
         self._send_file_internal(fp, headers=headers, cb=cb, num_cb=num_cb,
                                  query_args=query_args,
@@ -723,7 +722,7 @@ class Key(object):
 
             if chunked_transfer:
                 http_conn.send('0\r\n')
-                    # http_conn.send("Content-MD5: %s\r\n" % self.base64md5)
+                http_conn.send("Content-MD5: %s\r\n" % self.base64md5)
                 http_conn.send('\r\n')
 
             if cb and (cb_count <= 1 or i > 0) and data_len > 0:
@@ -782,8 +781,8 @@ class Key(object):
             headers['Content-MD5'] = self.base64md5
         if chunked_transfer:
             headers['Transfer-Encoding'] = 'chunked'
-            #if not self.base64md5:
-            #    headers['Trailer'] = "Content-MD5"
+            if not self.base64md5:
+                headers['Trailer'] = "Content-MD5"
         else:
             headers['Content-Length'] = str(self.size)
         # This is terrible. We need a SHA256 of the body for SigV4, but to do
@@ -1021,6 +1020,8 @@ class Key(object):
                 # we don't know anything about size yet.
                 chunked_transfer = True
                 self.size = None
+                # upload new data and clear md5 of the old data
+                self.md5 = None
             else:
                 chunked_transfer = False
                 if isinstance(fp, KeyFile):
@@ -1060,7 +1061,7 @@ class Key(object):
                 if self.bucket.lookup(self.name):
                     return
 
-            self.send_file(fp, headers=headers, query_args=query_args, size=size)
+            self.send_file(fp, headers=headers, query_args=query_args, chunked_transfer=chunked_transfer, size=size)
 
             # return number of bytes written.
             return self.size
@@ -1562,9 +1563,7 @@ class Key(object):
         """
         pass
 
-    '''
     def set_contents_from_stream(self, fp, headers=None, replace=True,
-                                 cb=None, num_cb=10, policy=None,
                                  reduced_redundancy=False, query_args=None,
                                  size=None):
         """
@@ -1624,8 +1623,7 @@ class Key(object):
             pointer. Less bytes may be available.
         """
 
-        raise NotSupportError('current not support')
-
+        policy = None
         provider = self.bucket.connection.provider
         if not provider.supports_chunked_transfer():
             raise MssapiClientError('%s does not support chunked transfer'
@@ -1650,8 +1648,80 @@ class Key(object):
             if not replace:
                 if self.bucket.lookup(self.name):
                     return
-            self.send_file(fp, headers, query_args, size=size)
+            self.send_file(fp, headers, query_args, chunked_transfer=True, size=size)
 
+    def _normalize_metadata(self, metadata):
+        if type(metadata) == set:
+            norm_metadata = set()
+            for k in metadata:
+                norm_metadata.add(k.lower())
+        else:
+            norm_metadata = {}
+            for k in metadata:
+                norm_metadata[k.lower()] = metadata[k]
+        return norm_metadata
+
+    def _get_remote_metadata(self, headers=None):
+        """
+        Extracts metadata from existing URI into a dict, so we can
+        overwrite/delete from it to form the new set of metadata to apply to a
+        key.
+        """
+        metadata = {}
+        for underscore_name in self._underscore_base_user_settable_fields:
+            if hasattr(self, underscore_name):
+                value = getattr(self, underscore_name)
+                if value:
+                    # Generate HTTP field name corresponding to "_" named field.
+                    field_name = underscore_name.replace('_', '-')
+                    metadata[field_name.lower()] = value
+        # self.metadata contains custom metadata, which are all user-settable.
+        prefix = self.provider.metadata_prefix
+        for underscore_name in self.metadata:
+            field_name = underscore_name.replace('_', '-')
+            metadata['%s%s' % (prefix, field_name.lower())] = (
+                self.metadata[underscore_name])
+        return metadata
+
+    def set_remote_metadata(self, metadata_plus, metadata_minus,
+                            headers=None):
+        """
+        Set key metadata
+        :type metadata_plus: dict
+        :param metadata_plus: Metadata added to the new key.
+        :type metadata_minus: dict
+        :param metadata_minus: Metadata removed from the new key.
+        :type headers: dict
+        :param headers: Any headers to pass along in the request
+
+
+        :rtype: :class:`mssapi.s3.key.Key` or subclass
+        :returns: An instance of the newly created key object
+        """
+        metadata_plus = self._normalize_metadata(metadata_plus)
+        metadata_minus = self._normalize_metadata(metadata_minus)
+        metadata = self._get_remote_metadata()
+        metadata.update(metadata_plus)
+        for h in metadata_minus:
+            if h in metadata:
+                del metadata[h]
+        src_bucket = self.bucket
+        # MSS Pyton SDK prepends the meta prefix when adding headers, so strip prefix in
+        # metadata before sending back in to copy_key() call.
+        rewritten_metadata = {}
+        for h in metadata:
+            prefix = self.provider.metadata_prefix
+            if h.startswith(prefix):
+                rewritten_h = h.replace(prefix, '')
+            else:
+                rewritten_h = h
+            rewritten_metadata[rewritten_h] = metadata[h]
+        metadata = rewritten_metadata
+        src_bucket.copy_key(self.name, self.bucket.name, self.name,
+                            metadata=metadata, headers=headers)
+
+
+    '''
     def get_torrent_file(self, fp, headers=None, cb=None, num_cb=10):
         """
         Get a torrent file (see to get_file)

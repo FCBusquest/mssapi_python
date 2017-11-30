@@ -38,7 +38,7 @@ import logging.config
 from mssapi.compat import urlparse
 from mssapi.exception import InvalidUriError
 
-__version__ = '1.0'
+__version__ = '1.1'
 Version = __version__  # for backware compatibility
 
 # http://bugs.python.org/issue7980

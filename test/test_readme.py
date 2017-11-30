@@ -2,15 +2,13 @@ import mssapi
 from mssapi.s3.connection import S3Connection
 from mssapi.s3.key import Key
 
-conn = S3Connection(
-    aws_access_key_id = '0fd0e58515004a69bcd44454a3e75a92',
-    aws_secret_access_key = '532053aff97540048dcfdcb1b34cf643',
-    port = 6008,
-    host = '10.4.253.10',
-)
+from test_common import create_bucket
+import test_util
 
-b0=conn.create_bucket('tmpbucket0')
-b1=conn.create_bucket('tmpbucket1')
+conn = test_util.get_conn()
+
+b0 = create_bucket(conn, 'tmpbucket0')
+b1 = create_bucket(conn, 'tmpbucket1')
 
 bs = conn.get_all_buckets()
 for b in bs:

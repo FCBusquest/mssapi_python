@@ -100,7 +100,11 @@ def mss_test_list_objects(bucket):
 def mss_test_download_object(bucket, key_name):
     print u'------ 下载指定对象 ------'
     key = bucket.get_key(key_name)
-    data = key.get_contents_as_string(encoding='utf-8')
+    try:
+        data = key.get_contents_as_string(encoding='utf-8')
+    except:
+        key.close()
+        raise
     data_md5 = md5(data)
     if key.etag == '"%s"' % data_md5.hexdigest():
         valid_str = 'match'

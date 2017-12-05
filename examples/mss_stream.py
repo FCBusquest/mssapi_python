@@ -62,34 +62,38 @@ def mss_stream_upload_download():
     md5_origin = mss_test_filename_md5(filename)
 
     # upload file
-    print 'upload from filename..'
-    k0_origin = b0.new_key('stream_test.mss')
-    k0_origin.set_contents_from_filename(filename)
+    print 'upload from stream..'
+    k0 = b0.new_key('stream_test.mss')
+    with open(filename, 'rb') as fp:
+        k0.set_contents_from_stream(fp)
 
     # check md5
-    k0_origin = b0.get_key('stream_test.mss')
-    assert k0_origin.etag.strip('"') == md5_origin
+    k0 = b0.get_key('stream_test.mss')
+    assert k0.etag.strip('"') == md5_origin
 
-    # reupload with stream
-    print 'upload from stream...'
-    k0_stream = b0.new_key('stream_test.mss.stream')
-    k0_stream.set_contents_from_stream(k0_origin)
-
-    # check md5
-    k0_stream = b0.get_key('stream_test.mss.stream')
-    assert k0_stream.etag.strip('"') == md5_origin
-
-    print 'compute stream md5...'
-    md5_stream = mss_test_file_md5(k0_stream, k0_stream.size)
-    assert md5_stream == md5_origin
-
-    k0_stream = b0.get_key('stream_test.mss.stream')
+    print 'stream reading..'
     hash_md5 = hashlib.md5()
-    for bytes in k0_stream:
-        hash_md5.update(bytes)
+    try:
+        for bytes in k0:
+            hash_md5.update(bytes)
+    except:
+        k0.close()
+        raise
     assert md5_origin == hash_md5.hexdigest()
 
-    b0.delete_keys([k0_origin, k0_stream])
+    print 'stream reading with Key read'
+    hash_md5 = hashlib.md5()
+    try:
+        offset = 0
+        while offset < k0.size:
+            part_size = min(1000, k0.size - offset)
+            hash_md5.update(k0.read(part_size))
+            offset += part_size
+    except:
+        k0.close()
+        raise
+
+    b0.delete_keys([k0])
 
     os.remove(filename)
 

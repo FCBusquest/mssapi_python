@@ -62,7 +62,11 @@ def mss_range_download():
     with open('multipart-test.txt.dowload', 'wb') as fp:
         while offset < k0_download.size:
             size = min(1024*1024, k0.size - offset)
-            bytes = k0_download.get_contents_as_string(headers={'Range': 'bytes=%d-%d' % (offset, offset + size - 1)})
+            try:
+                bytes = k0_download.get_contents_as_string(headers={'Range': 'bytes=%d-%d' % (offset, offset + size - 1)})
+            except:
+                k0_download.close()
+                raise
             fp.write(bytes)
             offset += size
             hash_md5.update(bytes)

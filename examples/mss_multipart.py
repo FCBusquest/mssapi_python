@@ -112,7 +112,11 @@ def mss_test_multipart_upload_test():
 
     # download object
     print u'------- 文件比对 ------'
-    cpy_key.get_contents_to_filename(cpy_key.name)
+    try:
+        cpy_key.get_contents_to_filename(cpy_key.name)
+    except:
+        cpy_key.close()
+        raise
 
     # compare
     assert os.path.getsize(key.name) == os.path.getsize(cpy_key.name)

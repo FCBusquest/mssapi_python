@@ -72,7 +72,11 @@ def mss_test_copy_example():
 
     # check
     key.copy(b0.name, 'dst_file')
-    cpy_data = cpy_key.get_contents_as_string()
+    try:
+        cpy_data = cpy_key.get_contents_as_string()
+    except:
+        key.close()
+        raise
     assert data == cpy_data
     assert key.content_type == cpy_key.content_type
     assert key.content_type == 'application/octet-stream'
@@ -88,7 +92,11 @@ def mss_test_copy_example():
     print '[DONE] copy object another bucket'
 
     # check
-    cpy_data = cpy_key.get_contents_as_string()
+    try:
+        cpy_data = cpy_key.get_contents_as_string()
+    except:
+        key.close()
+        raise
     assert data == cpy_data
     assert key.content_type == cpy_key.content_type
     assert key.content_type == 'application/octet-stream'

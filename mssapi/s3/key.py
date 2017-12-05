@@ -349,6 +349,9 @@ class Key(object):
             self.close()
         return data
 
+    def tell(self):
+        raise IOError
+
     def copy(self, dst_bucket, dst_key, metadata=None,
              encrypt_key=False, validate_dst_bucket=True):
 

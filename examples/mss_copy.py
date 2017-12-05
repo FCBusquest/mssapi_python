@@ -6,11 +6,16 @@ from mssapi.exception import MssapiServerError
 from mssapi.exception import MssapiClientError
 from mssapi.compat import http_client
 from mssapi.compat import encodebytes
-from hashlib import md5
 
-MSS_HOST = 'MSS 访问域名'
-MSS_ACCESS_KEY = '**************'
-MSS_ACCESS_SECRET = '****************'
+from hashlib import md5
+import os
+
+MSS_HOST = os.getenv('MSS_HOST')
+MSS_ACCESS_KEY = os.getenv('MSS_ACCESS_KEY')
+MSS_ACCESS_SECRET = os.getenv('MSS_SECRET_KEY')
+
+assert MSS_HOST and MSS_ACCESS_KEY and MSS_ACCESS_SECRET
+
 
 def mss_test_get_bucket(conn, name):
     b0 = None
